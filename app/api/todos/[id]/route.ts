@@ -2,9 +2,9 @@ import { deleteTodo, toggleTodo } from '../../../../lib/db';
 
 export async function PATCH(
   _request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = context.params;
+  const { id } = await context.params;
   const todo = await toggleTodo(id);
 
   if (!todo) {
@@ -16,9 +16,9 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = context.params;
+  const { id } = await context.params;
   await deleteTodo(id);
   return new Response(null, { status: 204 });
 }
