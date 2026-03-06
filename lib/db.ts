@@ -1,6 +1,19 @@
 import { neon } from '@neondatabase/serverless';
 
-const sql = neon(process.env.DATABASE_URL!);
+type SqlClient = ReturnType<typeof neon>;
+let sqlClient: SqlClient | null = null;
+
+function getSql(): SqlClient {
+  if (sqlClient) return sqlClient;
+
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('DATABASE_URL is not set.');
+  }
+
+  sqlClient = neon(url);
+  return sqlClient;
+}
 
 export interface Project {
   id: string;
@@ -29,6 +42,7 @@ let initPromise: Promise<void> | null = null;
 export function ensureSchema(): Promise<void> {
   if (!initPromise) {
     initPromise = (async () => {
+      const sql = getSql();
       await sql`CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
@@ -92,42 +106,49 @@ export function ensureSchema(): Promise<void> {
 
 export async function getProjects(): Promise<Project[]> {
   await ensureSchema();
+  const sql = getSql();
   const rows = await sql`SELECT * FROM projects ORDER BY created_at, name`;
   return rows as Project[];
 }
 
 export async function addProject(id: string, name: string): Promise<Project> {
   await ensureSchema();
+  const sql = getSql();
   const rows = await sql`INSERT INTO projects (id, name) VALUES (${id}, ${name}) RETURNING *`;
-  return rows[0] as Project;
+  return (rows as Project[])[0];
 }
 
 export async function getPriorities(): Promise<OptionItem[]> {
   await ensureSchema();
+  const sql = getSql();
   const rows = await sql`SELECT * FROM priority_options ORDER BY created_at, name`;
   return rows as OptionItem[];
 }
 
 export async function addPriority(id: string, name: string): Promise<OptionItem> {
   await ensureSchema();
+  const sql = getSql();
   const rows = await sql`INSERT INTO priority_options (id, name) VALUES (${id}, ${name}) RETURNING *`;
-  return rows[0] as OptionItem;
+  return (rows as OptionItem[])[0];
 }
 
 export async function getLabels(): Promise<OptionItem[]> {
   await ensureSchema();
+  const sql = getSql();
   const rows = await sql`SELECT * FROM label_options ORDER BY created_at, name`;
   return rows as OptionItem[];
 }
 
 export async function addLabel(id: string, name: string): Promise<OptionItem> {
   await ensureSchema();
+  const sql = getSql();
   const rows = await sql`INSERT INTO label_options (id, name) VALUES (${id}, ${name}) RETURNING *`;
-  return rows[0] as OptionItem;
+  return (rows as OptionItem[])[0];
 }
 
 export async function getTodos(): Promise<Todo[]> {
   await ensureSchema();
+  const sql = getSql();
   const rows = await sql`SELECT * FROM todos ORDER BY created_at DESC, id DESC`;
   return rows as Todo[];
 }
@@ -140,21 +161,24 @@ export async function addTodo(input: {
   labels: string[];
 }): Promise<Todo> {
   await ensureSchema();
+  const sql = getSql();
   const rows = await sql`INSERT INTO todos (id, text, done, project_id, priority, labels)
     VALUES (${input.id}, ${input.text}, false, ${input.projectId}, ${input.priority}, ${input.labels})
     RETURNING *`;
-  return rows[0] as Todo;
+  return (rows as Todo[])[0];
 }
 
 export async function toggleTodo(id: string): Promise<Todo> {
   await ensureSchema();
+  const sql = getSql();
   const rows = await sql`UPDATE todos SET done = NOT done WHERE id = ${id} RETURNING *`;
-  return rows[0] as Todo;
+  return (rows as Todo[])[0];
 }
 
 export async function deleteTodo(id: string): Promise<void> {
   await ensureSchema();
+  const sql = getSql();
   await sql`DELETE FROM todos WHERE id = ${id}`;
 }
 
-export { sql };
+export { getSql as sql };
